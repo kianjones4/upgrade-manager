@@ -6,9 +6,9 @@ agent:
   machine:
     type: e1-standard-2
     # os_image: ubuntu1804
-    containers:
-      - name: main
-        image: docker:stable-dind
+  containers:
+    - name: main
+      image: docker:stable-dind
 blocks:
   - name: Golang example
     task:
