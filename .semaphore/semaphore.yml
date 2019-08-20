@@ -17,4 +17,4 @@ blocks:
           commands:
             - ls
             - cat Makefile
-            - make docker test
+            - make docker-build
