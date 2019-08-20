@@ -15,4 +15,6 @@ blocks:
       jobs:
         - name: Run Go
           commands:
-            - make docker-test
+            - ls
+            - cat Makefile
+            - make docker test
