@@ -13,11 +13,6 @@ blocks:
         commands:
           - checkout
       jobs:
-        # - name: Run Go
-        #   commands:
-        #     - go version
-        #     # Uncomment the following line to pull your code,
-        #     # then proceed by adding your custom commands:
-        #     - checkout
-        #     - ls
-        - make docker-test
+        - name: Run Go
+          commands:
+            - make docker-test
