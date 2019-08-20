@@ -5,10 +5,10 @@ name: Hello Semaphore
 agent:
   machine:
     type: e1-standard-2
-    # os_image: ubuntu1804
+    # os_image: ubucntu1804
   containers:
-    - name: golang
-      image: golang:1.12
+    - name: main
+      image: semaphoreci/golang:1.12.9
 blocks:
   - name: Golang example
     task:
