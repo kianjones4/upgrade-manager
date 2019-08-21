@@ -16,16 +16,16 @@ blocks:
         commands:
           - checkout
           # - https://storage.googleapis.com/kubernetes-release/release/v1.14.4/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
-          - add-apt-repository -y ppa:longsleep/golang-backports
-          - apt-get update -y
-          - apt-get install -y golang-go
+          - sudo add-apt-repository -y ppa:longsleep/golang-backports
+          - sudo apt-get update -y
+          - sudo apt-get install -y golang-go
           - arch=amd64
           # download the release
-          - curl -L -O https://storage.googleapis.com/kubebuilder-release/kubebuilder_master_darwin_${arch}.tar.gz
+          - curl -L -O https://storage.googleapis.com/kubebuilder-release/kubebuilder_master_darwin_amd64.tar.gz
 
           # extract the archive
-          - tar -zxvf kubebuilder_master_darwin_${arch}.tar.gz
-          - mv kubebuilder_master_darwin_${arch} kubebuilder && sudo mv kubebuilder /usr/local/
+          - tar -zxvf kubebuilder_master_darwin_amd64.tar.gz
+          - mv kubebuilder_master_darwin_amd64 kubebuilder && sudo mv kubebuilder /usr/local/
 
           # update your PATH to include /usr/local/kubebuilder/bin
           - export PATH=$PATH:/usr/local/kubebuilder/bin
