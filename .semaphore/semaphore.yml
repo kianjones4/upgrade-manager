@@ -16,9 +16,9 @@ blocks:
         commands:
           - checkout
           # - https://storage.googleapis.com/kubernetes-release/release/v1.14.4/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
-          - sudo add-apt-repository ppa:longsleep/golang-backports
-          - apt-get update
-          - apt-get install golang-go
+          - add-apt-repository -y ppa:longsleep/golang-backports
+          - apt-get update -y
+          - apt-get install -y golang-go
           - arch=amd64
           # download the release
           - curl -L -O https://storage.googleapis.com/kubebuilder-release/kubebuilder_master_darwin_${arch}.tar.gz
