@@ -38,5 +38,6 @@ blocks:
             - mkdir -p ~/go/bin
             - mkdir ~/go/src
             - export GOPATH=~/go
+            - sudo dnf remove gcc-go-8.2.1-4.fc29.x86_64
             - cat Makefile
             - make docker-build
