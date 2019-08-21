@@ -34,6 +34,7 @@ blocks:
       jobs:
         - name: Run Go
           commands:
+            - go version
             - ls /usr/local/kubebuilder/bin
             - mkdir -p ~/go/bin
             - mkdir ~/go/src
