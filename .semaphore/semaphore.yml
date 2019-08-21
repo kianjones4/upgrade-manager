@@ -20,6 +20,8 @@ blocks:
           - sudo apt-get update -y
           - sudo apt-get --yes --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" upgrade
           - sudo apt-get install -y golang-go
+          - go version
+          - which go
           - mkdir -p ~/go/bin
           - arch=amd64
           # download the release
@@ -36,6 +38,7 @@ blocks:
         - name: Run Go
           commands:
             - go version
+            - which go
             - ls /usr/local/kubebuilder/bin
             - mkdir -p ~/go/bin
             - mkdir ~/go/src
