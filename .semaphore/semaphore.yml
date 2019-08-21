@@ -5,7 +5,7 @@ name: Upgrade Manager
 agent:
   machine:
     type: e1-standard-2
-    # os_image: ubucntu1804
+    # os_image: ubucntu1804 
   containers:
     - name: main
       image: semaphoreci/golang:1.12.9
