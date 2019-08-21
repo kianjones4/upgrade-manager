@@ -36,6 +36,7 @@ blocks:
           commands:
             - ls /usr/local/kubebuilder/bin
             - mkdir -p ~/go/bin
-            - mkdir ~/go/src 
+            - mkdir ~/go/src
+            - export GOPATH=~/go
             - cat Makefile
             - make docker-build
