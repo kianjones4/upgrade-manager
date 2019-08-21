@@ -5,10 +5,10 @@ name: Upgrade Manager
 agent:
   machine:
     type: e1-standard-2
-    # os_image: ubucntu1804
-  containers:
-    - name: main
-      image: semaphoreci/golang:1.12.9
+    os_image: ubucntu1804
+  # containers:
+  #   - name: main
+  #     image: semaphoreci/golang:1.12.9
 blocks:
   - name: Golang example
     task:
@@ -16,11 +16,23 @@ blocks:
         commands:
           - checkout
           # - https://storage.googleapis.com/kubernetes-release/release/v1.14.4/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
+          - sudo add-apt-repository ppa:longsleep/golang-backports
+          - apt-get update
+          - apt-get install golang-go
+          - arch=amd64
+          # download the release
+          - curl -L -O https://storage.googleapis.com/kubebuilder-release/kubebuilder_master_darwin_${arch}.tar.gz
+
+          # extract the archive
+          - tar -zxvf kubebuilder_master_darwin_${arch}.tar.gz
+          - mv kubebuilder_master_darwin_${arch} kubebuilder && sudo mv kubebuilder /usr/local/
+
+          # update your PATH to include /usr/local/kubebuilder/bin
+          - export PATH=$PATH:/usr/local/kubebuilder/bin
 
       jobs:
         - name: Run Go
           commands:
             - ls
             - cat Makefile
-            - make manager
             - make docker-build
