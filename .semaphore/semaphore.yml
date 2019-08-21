@@ -34,9 +34,8 @@ blocks:
       jobs:
         - name: Run Go
           commands:
-            - echo $GOPATH
-            - ls $GOPATH/src
-            - ls $GOPATH/bin
             - ls /usr/local/kubebuilder/bin
+            - mkdir -p ~/go/bin
+            - mkdir ~/go/src 
             - cat Makefile
             - make docker-build
