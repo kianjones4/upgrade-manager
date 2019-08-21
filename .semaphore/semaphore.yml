@@ -21,4 +21,4 @@ blocks:
             - ls
             - cat Makefile
             - make manager
-            - make test
+            - make docker-build
