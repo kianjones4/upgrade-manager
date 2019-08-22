@@ -59,10 +59,8 @@ docker-push:
 # download controller-gen if necessary
 controller-gen:
 ifeq (, $(shell which controller-gen))
-	@echo $GOPATH
 	# export GO111MODULE=off # https://stackoverflow.com/questions/54415733/getting-gopath-error-go-cannot-use-pathversion-syntax-in-gopath-mode-in-ubun
 	go get sigs.k8s.io/controller-tools/cmd/controller-gen
-	ls /home/semaphore/go/src
 CONTROLLER_GEN=$(shell go env GOPATH)/bin/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
