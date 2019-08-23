@@ -38,7 +38,7 @@ blocks:
           # extract the archive
           # - tar -zxvf kubebuilder_master_darwin_amd64.tar.gz
           # - mv kubebuilder_master_darwin_amd64 kubebuilder && sudo mv kubebuilder /usr/local/
-          - sudo mv /tmp/kubebuilder_2.0.0_${os}_${arch} /usr/local/kubebuilder
+          - sudo mv /tmp/kubebuilder_latest_${os}_${arch} /usr/local/kubebuilder
 
           # update your PATH to include /usr/local/kubebuilder/bin
           - export PATH=$PATH:/usr/local/kubebuilder/bin
