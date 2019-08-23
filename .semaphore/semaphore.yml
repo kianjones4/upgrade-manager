@@ -15,12 +15,6 @@ blocks:
       prologue:
         commands:
           - checkout
-          # - https://storage.googleapis.com/kubernetes-release/release/v1.14.4/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
-          # - sudo add-apt-repository -y ppa:longsleep/golang-backports
-          # - sudo apt-get update -y
-          # - sudo apt-get --yes --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" upgrade
-          # - sudo apt-get purge golang*
-          # - sudo apt-get install -y golang-go
           - wget https://dl.google.com/go/go1.12.7.linux-amd64.tar.gz
           - sudo tar -xvf go1.12.7.linux-amd64.tar.gz
           - sudo cp go/bin/go /usr/local/bin
@@ -29,18 +23,11 @@ blocks:
           - go version
           - which go
           - mkdir -p ~/go/bin
-          # - arch=amd64
           - export os=$(go env GOOS)
           - export arch=$(go env GOARCH)
           # download the release
-          # - curl -L -O https://storage.googleapis.com/kubebuilder-release/kubebuilder_master_darwin_amd64.tar.gz
           - curl -sL https://go.kubebuilder.io/dl/latest/${os}/${arch} | tar -xz -C /tmp/
-          # extract the archive
-          # - tar -zxvf kubebuilder_master_darwin_amd64.tar.gz
-          # - mv kubebuilder_master_darwin_amd64 kubebuilder && sudo mv kubebuilder /usr/local/
           - sudo mv /tmp/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
-
-          # update your PATH to include /usr/local/kubebuilder/bin
           - export PATH=$PATH:/usr/local/kubebuilder/bin
 
       jobs:
