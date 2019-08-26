@@ -46,14 +46,17 @@ blocks:
             - sudo mv /packages/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
             - export PATH=$PATH:/usr/local/kubebuilder/bin
 
-        - name: Docker Build
-          commands:
-            # - go version
-            # - which go
-            # - ls /usr/local/kubebuilder/bin
-            # - mkdir -p ~/go/bin
-            # - mkdir ~/go/src
-            # - export GOPATH=~/go
-            # - cat Makefile
-            - checkout
-            - make docker-build
+    - name: Build
+      task:
+        jobs:
+          - name: Docker Build
+            commands:
+              # - go version
+              # - which go
+              # - ls /usr/local/kubebuilder/bin
+              # - mkdir -p ~/go/bin
+              # - mkdir ~/go/src
+              # - export GOPATH=~/go
+              # - cat Makefile
+              - checkout
+              - make docker-build
