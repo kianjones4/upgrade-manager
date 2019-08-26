@@ -53,7 +53,7 @@ blocks:
           commands:
             # - go version
             # - which go
-            - ls /usr/local/kubebuilder/bin
+            - ls /usr/local/kubebuilder
             - export PATH=$PATH:/usr/local/kubebuilder/bin
             # - mkdir -p ~/go/bin
             # - mkdir ~/go/src
