@@ -44,6 +44,7 @@ blocks:
             - export arch=$(go env GOARCH)
             # - tar -xz /packages/kubebuilder_master_${os}_${arch}.tar.gz -C /packages
             - sudo mv /packages/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
+            - ls /usr/local/kubebuilder
             - export PATH=$PATH:/usr/local/kubebuilder/bin
 
   - name: Build
