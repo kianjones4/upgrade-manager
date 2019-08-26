@@ -32,7 +32,7 @@ blocks:
             - checkout
             - source .semaphore/setup.sh
             - ls -l /packages
-            - ls -l /packages/go
+            # - ls -l /packages/go
 
       # jobs:
       #   - name: Env Setup
@@ -71,7 +71,7 @@ blocks:
             - sudo mv go /usr/local
             - export os=$(go env GOOS)
             - export arch=$(go env GOARCH)
-            - tar -xz kubebuilder_master_${os}_${arch}.tar.gz 
+            - tar -xz kubebuilder_master_${os}_${arch}.tar.gz
             - sudo mv /packages/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
             - ls /usr/local/kubebuilder
             - export PATH=$PATH:/usr/local/kubebuilder/bin
