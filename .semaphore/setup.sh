@@ -1,4 +1,4 @@
-cache restore $SEMAPHORE_PROJECT_NAME-deps
+# cache restore $SEMAPHORE_PROJECT_NAME-deps
 
 if [ ! -d '/packages' ]; then
   sudo mkdir -p /packages/go
