@@ -29,7 +29,7 @@ blocks:
           # - sudo mv /tmp/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
           # - export PATH=$PATH:/usr/local/kubebuilder/bin
           - checkout
-          - source .semaphore/get_packages.sh
+          - source .semaphore/setup.sh
           - ls -l /packages
 
       jobs:
