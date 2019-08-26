@@ -32,6 +32,8 @@ blocks:
           - source .semaphore/setup.sh
           - ls -l /packages
 
+  - name: Build
+    task:
       jobs:
         - name: Env Setup
           commands:
@@ -47,9 +49,6 @@ blocks:
             - ls /usr/local/kubebuilder
             - export PATH=$PATH:/usr/local/kubebuilder/bin
 
-  - name: Build
-    task:
-      jobs:
         - name: Docker Build
           commands:
             # - go version
