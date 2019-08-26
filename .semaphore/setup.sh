@@ -1,7 +1,7 @@
 # cache restore $SEMAPHORE_PROJECT_NAME-deps
 
 if [ ! -d '/packages' ]; then
-  sudo mkdir -p /packages/go
+  sudo mkdir -p /packages
   wget https://dl.google.com/go/go1.12.7.linux-amd64.tar.gz
   sudo tar -xvf go1.12.7.linux-amd64.tar.gz
   sudo mv go /packages
