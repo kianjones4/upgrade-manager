@@ -5,6 +5,8 @@ if [ ! -d '/packages' ]; then
   wget https://dl.google.com/go/go1.12.7.linux-amd64.tar.gz
   sudo tar -xvf go1.12.7.linux-amd64.tar.gz
   sudo mv go /packages
+  export os=$(go env GOOS)
+  export arch=$(go env GOARCH)
   curl -sL https://go.kubebuilder.io/dl/latest/${os}/${arch} | tar -xz -C /packages
   sudo cp -r /tmp/kubebuilder_master_${os}_${arch} /packages/kubebuilder
   cache store $SEMAPHORE_PROJECT_NAME-deps /packages
