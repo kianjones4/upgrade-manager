@@ -8,7 +8,7 @@ if [ ! -d '/packages' ]; then
   export os=$(go env GOOS)
   export arch=$(go env GOARCH)
   curl -sL https://go.kubebuilder.io/dl/latest/${os}/${arch} | tar -xz -C /packages
-  sudo cp -r /tmp/kubebuilder_master_${os}_${arch} /packages/kubebuilder
+  # sudo cp -r /tmp/kubebuilder_master_${os}_${arch} /packages/kubebuilder_master_${os}_${arch}
   cache store $SEMAPHORE_PROJECT_NAME-deps /packages
   # wget https://go.kubebuilder.io/dl/latest/${os}/${arch} -O /packages
   # sudo tar -xvf go1.12.7.linux-amd64.tar.gz -C /packages/go
