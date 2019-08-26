@@ -36,13 +36,13 @@ blocks:
         - name: Env Setup
           commands:
             - cache restore $SEMAPHORE_PROJECT_NAME-deps
-            - sudo tar -xvf /packages/go1.12.7.linux-amd64.tar.gz -C /packages
+            # - sudo tar -xvf /packages/go1.12.7.linux-amd64.tar.gz -C /packages
             - sudo cp /packages/go/bin/go /usr/local/bin
             - sudo rm -rf /usr/local/go
             - sudo mv /packages/go /usr/local
             - export os=$(go env GOOS)
             - export arch=$(go env GOARCH)
-            - tar -xz /packages/kubebuilder_master_${os}_${arch}.tar.gz -C /packages
+            # - tar -xz /packages/kubebuilder_master_${os}_${arch}.tar.gz -C /packages
             - sudo mv /packages/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
             - export PATH=$PATH:/usr/local/kubebuilder/bin
 
