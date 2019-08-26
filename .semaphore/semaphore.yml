@@ -63,6 +63,8 @@ blocks:
             # # - cat Makefile
             - cache restore $SEMAPHORE_PROJECT_NAME-deps
             # - sudo tar -xvf /packages/go1.12.7.linux-amd64.tar.gz -C /packages
+            - ls -l /packages 
+            - ls -l /packages/go
             - sudo cp /packages/go/bin/go /usr/local/bin
             - sudo rm -rf /usr/local/go
             - sudo mv /packages/go /usr/local
