@@ -10,3 +10,4 @@ if [ ! -d '/packages' ]; then
   sudo mv kubebuilder_master_${os}_${arch}.tar.gz /packages
   ls -l /packages
   cache store $SEMAPHORE_PROJECT_NAME-dep /packages
+fi
