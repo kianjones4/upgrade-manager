@@ -12,7 +12,7 @@ if [ ! -d '/packages' ]; then
   sudo mv kubebuilder_master_${os}_${arch}.tar.gz /packages
   # sudo cp -r /tmp/kubebuilder_master_${os}_${arch} /packages/kubebuilder_master_${os}_${arch}
   ls -l /packages
-  cache store $SEMAPHORE_PROJECT_NAME-deps /packages
+  cache store $SEMAPHORE_PROJECT_NAME-dep /packages
   # wget https://go.kubebuilder.io/dl/latest/${os}/${arch} -O /packages
   # sudo tar -xvf go1.12.7.linux-amd64.tar.gz -C /packages/go
   # sudo cp go/bin/go /usr/local/bin

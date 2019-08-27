@@ -62,7 +62,7 @@ blocks:
             # # - mkdir ~/go/src
             # # - export GOPATH=~/go
             # # - cat Makefile
-            - cache restore $SEMAPHORE_PROJECT_NAME-deps
+            - cache restore $SEMAPHORE_PROJECT_NAME-dep
             - ls -l /packages
             - pushd /packages
             - sudo tar -xvf go1.12.7.linux-amd64.tar.gz
