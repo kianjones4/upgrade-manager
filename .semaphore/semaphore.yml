@@ -15,66 +15,30 @@ blocks:
       jobs:
         - name: Setup
           commands:
-            # - wget https://dl.google.com/go/go1.12.7.linux-amd64.tar.gz
-            # - sudo tar -xvf go1.12.7.linux-amd64.tar.gz
-            # - sudo cp go/bin/go /usr/local/bin
-            # - sudo rm -rf /usr/local/go
-            # - sudo mv go /usr/local
-            # # - go version
-            # # - which go
-            # # - mkdir -p ~/go/bin
-            # - export os=$(go env GOOS)
-            # - export arch=$(go env GOARCH)
-            # # download the release
-            # - curl -sL https://go.kubebuilder.io/dl/latest/${os}/${arch} | tar -xz -C /tmp/
-            # - sudo mv /tmp/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
-            # - export PATH=$PATH:/usr/local/kubebuilder/bin
             - checkout
             - source .semaphore/setup.sh
             - ls -l /packages
-            # - ls -l /packages/go
-
-      # jobs:
-      #   - name: Env Setup
-      #     commands:
-      #       - cache restore $SEMAPHORE_PROJECT_NAME-deps
-      #       # - sudo tar -xvf /packages/go1.12.7.linux-amd64.tar.gz -C /packages
-      #       - sudo cp /packages/go/bin/go /usr/local/bin
-      #       - sudo rm -rf /usr/local/go
-      #       - sudo mv /packages/go /usr/local
-      #       - export os=$(go env GOOS)
-      #       - export arch=$(go env GOARCH)
-      #       # - tar -xz /packages/kubebuilder_master_${os}_${arch}.tar.gz -C /packages
-      #       - sudo mv /packages/kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
-      #       - ls /usr/local/kubebuilder
-      #       - export PATH=$PATH:/usr/local/kubebuilder/bin
 
   - name: Build
     task:
+      prologue:
+        commands:
+          - cache restore $SEMAPHORE_PROJECT_NAME-dep
+          - ls -l /packages
+          - pushd /packages
+          - sudo tar -xvf go1.12.7.linux-amd64.tar.gz
+          - sudo cp go/bin/go /usr/local/bin
+          - sudo rm -rf /usr/local/go
+          - sudo mv go /usr/local
+          - export os=$(go env GOOS)
+          - export arch=$(go env GOARCH)
+          - tar -xzvf kubebuilder_master_${os}_${arch}.tar.gz
+          - sudo mv kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
+          - ls /usr/local/kubebuilder
+          - export PATH=$PATH:/usr/local/kubebuilder/bin
+          - popd
+          - checkout
       jobs:
         - name: Docker Build
           commands:
-            # # - go version
-            # # - which go
-            # - ls /usr/local/kubebuilder
-            # - export PATH=$PATH:/usr/local/kubebuilder/bin
-            # # - mkdir -p ~/go/bin
-            # # - mkdir ~/go/src
-            # # - export GOPATH=~/go
-            # # - cat Makefile
-            - cache restore $SEMAPHORE_PROJECT_NAME-dep
-            - ls -l /packages
-            - pushd /packages
-            - sudo tar -xvf go1.12.7.linux-amd64.tar.gz
-            - sudo cp go/bin/go /usr/local/bin
-            - sudo rm -rf /usr/local/go
-            - sudo mv go /usr/local
-            - export os=$(go env GOOS)
-            - export arch=$(go env GOARCH)
-            - tar -xzvf kubebuilder_master_${os}_${arch}.tar.gz
-            - sudo mv kubebuilder_master_${os}_${arch} /usr/local/kubebuilder
-            - ls /usr/local/kubebuilder
-            - export PATH=$PATH:/usr/local/kubebuilder/bin
-            - popd
-            - checkout
             - make docker-build
