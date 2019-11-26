@@ -230,9 +230,11 @@ func (r *RollingUpgradeReconciler) TerminateNode(ruObj *upgrademgrv1alpha1.Rolli
 	result, err := svc.TerminateInstanceInAutoScalingGroup(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case "InvalidInstanceID.NotFound":
+			if strings.Contains(aerr.Message(), "not found") {
 				log.Printf("Instance %s not found. Moving on\n", instanceID)
+				return nil
+			}
+			switch aerr.Code() {
 			case autoscaling.ErrCodeScalingActivityInProgressFault:
 				log.Println(autoscaling.ErrCodeScalingActivityInProgressFault, aerr.Error())
 			case autoscaling.ErrCodeResourceContentionFault:
