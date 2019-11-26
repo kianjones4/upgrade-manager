@@ -639,7 +639,7 @@ func (r *RollingUpgradeReconciler) RandomUpdate(ctx *context.Context, ruObj *upg
 
 	value, ok := r.ruObjNameToASG.Load(ruObj.Name)
 	if !ok {
-		msg := "Failed to find rollup name in map."
+		msg := "Failed to find rollingUpgrade name in map."
 		log.Printf(msg)
 		return 0, errors.New(msg)
 	}
