@@ -37,9 +37,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
-
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/go-logr/logr"
-	log "github.com/keikoproj/upgrade-manager/pkg/log"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,9 +47,11 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	upgrademgrv1alpha1 "github.com/keikoproj/upgrade-manager/api/v1alpha1"
+	log "github.com/keikoproj/upgrade-manager/pkg/log"
 )
 
 const (
@@ -65,6 +67,8 @@ const (
 	ClearCompletedFrequency = "1d"
 	// ClearErrorFrequency is the time after which an errored rollingUpgrade object is deleted.
 	ClearErrorFrequency = "7d"
+	// EC2StateTagKey is the EC2 tag key for indicating the state
+	EC2StateTagKey = "upgrademgr.keikoproj.io/state"
 
 	// Environment variable keys
 	asgNameKey      = "ASG_NAME"
@@ -96,12 +100,22 @@ var DefaultRetryer = awsclient.DefaultRetryer{
 type RollingUpgradeReconciler struct {
 	client.Client
 	Log             logr.Logger
+	EC2Client       ec2iface.EC2API
+	ASGClient       autoscalingiface.AutoScalingAPI
 	generatedClient *kubernetes.Clientset
 	Asg             *autoscaling.Group
 	NodeList        *corev1.NodeList
 	admissionMap    sync.Map
 	ruObjNameToASG  sync.Map
 	ClusterState    ClusterState
+	maxParallel     int
+}
+
+func (r *RollingUpgradeReconciler) SetMaxParallel(max int) {
+	if max >= 1 {
+		log.Infof("max parallel reconciles = %v", max)
+		r.maxParallel = max
+	}
 }
 
 func runScript(script string, background bool, objName string) (string, error) {
@@ -148,7 +162,7 @@ func (r *RollingUpgradeReconciler) postDrainHelper(ruObj *upgrademgrv1alpha1.Rol
 			return errors.New(msg)
 		}
 	}
-	log.Printf("%s: Waiting for postDrainDelay", ruObj.Name)
+	log.Printf("%s: Waiting for postDrainDelay of %v seconds", ruObj.Name, ruObj.Spec.PostDrainDelaySeconds)
 	time.Sleep(time.Duration(ruObj.Spec.PostDrainDelaySeconds) * time.Second)
 
 	if ruObj.Spec.PostDrain.PostWaitScript != "" {
@@ -253,14 +267,14 @@ func (r *RollingUpgradeReconciler) WaitForTermination(nodeName string, nodeInter
 }
 
 // TerminateNode actually terminates the given node.
-func (r *RollingUpgradeReconciler) TerminateNode(ruObj *upgrademgrv1alpha1.RollingUpgrade, instanceID string, svc autoscalingiface.AutoScalingAPI) error {
+func (r *RollingUpgradeReconciler) TerminateNode(ruObj *upgrademgrv1alpha1.RollingUpgrade, instanceID string) error {
 
 	input := &autoscaling.TerminateInstanceInAutoScalingGroupInput{
 		InstanceId:                     aws.String(instanceID),
 		ShouldDecrementDesiredCapacity: aws.Bool(false),
 	}
 
-	result, err := svc.TerminateInstanceInAutoScalingGroup(input)
+	result, err := r.ASGClient.TerminateInstanceInAutoScalingGroup(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if strings.Contains(aerr.Message(), "not found") {
@@ -282,6 +296,7 @@ func (r *RollingUpgradeReconciler) TerminateNode(ruObj *upgrademgrv1alpha1.Rolli
 
 	log.Printf("%s: Termination output: %v\n", ruObj.Name, result)
 
+	log.Printf("starting post termination sleep for %v seconds", ruObj.Spec.NodeIntervalSeconds)
 	time.Sleep(time.Duration(ruObj.Spec.NodeIntervalSeconds) * time.Second)
 	if ruObj.Spec.PostTerminate.Script != "" {
 		out, err := runScript(ruObj.Spec.PostTerminate.Script, false, ruObj.Name)
@@ -327,7 +342,7 @@ func (r *RollingUpgradeReconciler) getNodeFromAsg(i *autoscaling.Instance, nodeL
 	return nil
 }
 
-func (r *RollingUpgradeReconciler) populateAsg(ruObj *upgrademgrv1alpha1.RollingUpgrade, svc autoscalingiface.AutoScalingAPI) error {
+func (r *RollingUpgradeReconciler) populateAsg(ruObj *upgrademgrv1alpha1.RollingUpgrade) error {
 	// Initialize a session in the given region that the SDK will use to load
 	// credentials.
 	input := &autoscaling.DescribeAutoScalingGroupsInput{
@@ -336,7 +351,7 @@ func (r *RollingUpgradeReconciler) populateAsg(ruObj *upgrademgrv1alpha1.Rolling
 		},
 	}
 
-	result, err := svc.DescribeAutoScalingGroups(input)
+	result, err := r.ASGClient.DescribeAutoScalingGroups(input)
 	if err != nil {
 		log.Println(err.Error())
 		return errors.New(ruObj.Name + ": Failed to describe autoscaling group: " + err.Error())
@@ -391,7 +406,21 @@ func loadEnvironmentVariables(ruObj *upgrademgrv1alpha1.RollingUpgrade, nodeInst
 	return nil
 }
 
-func (r *RollingUpgradeReconciler) runRestack(ctx *context.Context, ruObj *upgrademgrv1alpha1.RollingUpgrade, svc autoscalingiface.AutoScalingAPI, KubeCtlCall string) (int, error) {
+func (r *RollingUpgradeReconciler) getInProgressInstances(instances []*autoscaling.Instance) ([]*autoscaling.Instance, error) {
+	var inProgressInstances []*autoscaling.Instance
+	taggedInstances, err := getTaggedInstances(EC2StateTagKey, "in-progress", r.EC2Client)
+	if err != nil {
+		return inProgressInstances, err
+	}
+	for _, instance := range instances {
+		if contains(taggedInstances, aws.StringValue(instance.InstanceId)) {
+			inProgressInstances = append(inProgressInstances, instance)
+		}
+	}
+	return inProgressInstances, nil
+}
+
+func (r *RollingUpgradeReconciler) runRestack(ctx *context.Context, ruObj *upgrademgrv1alpha1.RollingUpgrade, KubeCtlCall string) (int, error) {
 	// Setting default values for the Strategy in rollup object
 	r.setDefaultsForRollingUpdateStrategy(ruObj)
 
@@ -418,12 +447,27 @@ func (r *RollingUpgradeReconciler) runRestack(ctx *context.Context, ruObj *upgra
 	// set the state of instances in the ASG to new in the cluster store
 	r.ClusterState.initializeAsg(*asg.AutoScalingGroupName, asg.Instances)
 
-	currentLaunchConfigName := aws.StringValue(asg.LaunchConfigurationName)
+	launchDefinition := NewLaunchDefinition(asg)
 
 	processedInstances := 0
+
+	inProgress, err := r.getInProgressInstances(asg.Instances)
+	if err != nil {
+		log.Errorf("Failed to acquire in-progress instances, %v", err)
+	}
+
 	for processedInstances < totalNodes {
-		// Fetch instances to update from node selector
-		instances := nodeSelector.SelectNodesForRestack(r.ClusterState)
+		instances := []*autoscaling.Instance{}
+		if len(inProgress) == 0 {
+			// Fetch instances to update from node selector
+			instances = nodeSelector.SelectNodesForRestack(r.ClusterState)
+			log.Printf("selected instances for rotation: %+v", instances)
+		} else {
+			// Prefer in progress instances over new ones
+			instances = inProgress
+			inProgress = []*autoscaling.Instance{}
+			log.Printf("found in progress instances: %+v", instances)
+		}
 
 		if instances == nil {
 			errorMessage := fmt.Sprintf(
@@ -437,7 +481,7 @@ func (r *RollingUpgradeReconciler) runRestack(ctx *context.Context, ruObj *upgra
 		}
 
 		// update the instances
-		err := r.UpdateInstances(ctx, ruObj, instances, currentLaunchConfigName, KubeCtlCall, svc)
+		err := r.UpdateInstances(ctx, ruObj, instances, launchDefinition, KubeCtlCall)
 		processedInstances += len(instances)
 		if err != nil {
 			return processedInstances, err
@@ -509,8 +553,10 @@ func (r *RollingUpgradeReconciler) Process(ctx *context.Context,
 	if err != nil {
 		log.Fatalf("failed to create asg client, %v", err)
 	}
-	svc := autoscaling.New(sess)
-	err = r.populateAsg(ruObj, svc)
+	r.ASGClient = autoscaling.New(sess)
+	r.EC2Client = ec2.New(sess)
+
+	err = r.populateAsg(ruObj)
 	if err != nil {
 		return r.finishExecution(StatusError, 0, ctx, ruObj)
 	}
@@ -537,7 +583,7 @@ func (r *RollingUpgradeReconciler) Process(ctx *context.Context,
 	r.Update(*ctx, ruObj)
 
 	// Run the restack that acutally performs the rolling update.
-	nodesProcessed, err := r.runRestack(ctx, ruObj, svc, KubeCtlBinary)
+	nodesProcessed, err := r.runRestack(ctx, ruObj, KubeCtlBinary)
 	if err != nil {
 		return r.finishExecution(StatusError, nodesProcessed, ctx, ruObj)
 	}
@@ -602,7 +648,7 @@ func (r *RollingUpgradeReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 			logr.Info("Sync map with invalid entry for ", "name", ruObj.Name)
 		}
 	} else {
-		go r.Process(&ctx, ruObj)
+		r.Process(&ctx, ruObj)
 		logr.Info("Adding obj to map: ", "name", ruObj.Name)
 		r.admissionMap.Store(ruObj.Name, "processing")
 	}
@@ -615,7 +661,17 @@ func (r *RollingUpgradeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.generatedClient = kubernetes.NewForConfigOrDie(mgr.GetConfig())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&upgrademgrv1alpha1.RollingUpgrade{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: r.maxParallel}).
 		Complete(r)
+}
+
+func (r *RollingUpgradeReconciler) setStateTag(instanceID string, state string) error {
+	log.Printf("setting instance %v state to %v", instanceID, state)
+	err := tagEC2instance(instanceID, EC2StateTagKey, state, r.EC2Client)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // validateRollingUpgradeObj validates rollup object for the type, maxUnavailable and drainTimeout
@@ -700,9 +756,8 @@ func NewUpdateInstancesError(instanceUpdateErrors []error) *UpdateInstancesError
 func (r *RollingUpgradeReconciler) UpdateInstances(ctx *context.Context,
 	ruObj *upgrademgrv1alpha1.RollingUpgrade,
 	instances []*autoscaling.Instance,
-	currentLaunchConfigName string,
-	KubeCtlCall string,
-	svc autoscalingiface.AutoScalingAPI) error {
+	launchDefinition *launchDefinition,
+	KubeCtlCall string) error {
 
 	totalNodes := len(instances)
 	if totalNodes == 0 {
@@ -712,7 +767,7 @@ func (r *RollingUpgradeReconciler) UpdateInstances(ctx *context.Context,
 	ch := make(chan error)
 
 	for _, instance := range instances {
-		go r.UpdateInstance(ctx, ruObj, instance, currentLaunchConfigName, KubeCtlCall, svc, ch)
+		go r.UpdateInstance(ctx, ruObj, instance, launchDefinition, KubeCtlCall, ch)
 	}
 
 	// wait for upgrades to complete
@@ -743,25 +798,19 @@ Loop:
 func (r *RollingUpgradeReconciler) UpdateInstance(ctx *context.Context,
 	ruObj *upgrademgrv1alpha1.RollingUpgrade,
 	i *autoscaling.Instance,
-	currentLaunchConfigName string,
+	launchDefinition *launchDefinition,
 	KubeCtlCall string,
-	svc autoscalingiface.AutoScalingAPI,
 	ch chan error) {
-
-	targetLaunchConfigName := aws.StringValue(i.LaunchConfigurationName)
-	targetInstanceID := aws.StringValue(i.InstanceId)
 
 	// If the running node has the same launchconfig as the asg,
 	// there is no need to refresh it.
-	if targetLaunchConfigName != "" {
-		// if LaunchConfig is blank, the instance is not inline with the active LaunchConfig
-		if targetLaunchConfigName == currentLaunchConfigName {
-			log.Printf("Ignoring %s since it has the correct launch-config", targetInstanceID)
-			ruObj.Status.NodesProcessed = ruObj.Status.NodesProcessed + 1
-			r.Update(*ctx, ruObj)
-			ch <- nil
-			return
-		}
+	targetInstanceID := aws.StringValue(i.InstanceId)
+	if !requiresRefresh(i, launchDefinition) {
+		log.Printf("Ignoring %s since it has the correct launch-config", targetInstanceID)
+		ruObj.Status.NodesProcessed = ruObj.Status.NodesProcessed + 1
+		r.Update(*ctx, ruObj)
+		ch <- nil
+		return
 	}
 
 	nodeName := r.getNodeName(i, r.NodeList, ruObj)
@@ -777,6 +826,13 @@ func (r *RollingUpgradeReconciler) UpdateInstance(ctx *context.Context,
 		return
 	}
 
+	// set the EC2 tag indicating the state to in-progress
+	err = r.setStateTag(targetInstanceID, "in-progress")
+	if err != nil {
+		ch <- err
+		return
+	}
+
 	// Drain and wait for draining node.
 	err = r.DrainNode(ruObj, nodeName, KubeCtlCall, ruObj.Spec.Strategy.DrainTimeout)
 	if err != nil {
@@ -785,7 +841,7 @@ func (r *RollingUpgradeReconciler) UpdateInstance(ctx *context.Context,
 	}
 
 	// Terminate instance.
-	err = r.TerminateNode(ruObj, targetInstanceID, svc)
+	err = r.TerminateNode(ruObj, targetInstanceID)
 	if err != nil {
 		ch <- err
 		return
@@ -801,6 +857,13 @@ func (r *RollingUpgradeReconciler) UpdateInstance(ctx *context.Context,
 		log.Warnf("termination waiter completed but %s is still joined, will proceed with upgrade", nodeName)
 	}
 
+	// set the EC2 tag indicating the state to completed
+	err = r.setStateTag(targetInstanceID, "completed")
+	if err != nil {
+		ch <- err
+		return
+	}
+
 	ruObj.Status.NodesProcessed = ruObj.Status.NodesProcessed + 1
 	r.Update(*ctx, ruObj)
 
@@ -808,4 +871,25 @@ func (r *RollingUpgradeReconciler) UpdateInstance(ctx *context.Context,
 	r.ClusterState.markUpdateCompleted(*i.InstanceId)
 	ch <- nil
 	return
+}
+
+func requiresRefresh(ec2Instance *autoscaling.Instance, definition *launchDefinition) bool {
+	if definition.launchConfigurationName != nil {
+		if *(definition.launchConfigurationName) != aws.StringValue(ec2Instance.LaunchConfigurationName) {
+			return true
+		}
+	} else if definition.launchTemplate != nil && ec2Instance.LaunchTemplate != nil {
+		instanceLaunchTemplate := ec2Instance.LaunchTemplate
+		targetLaunchTemplate := definition.launchTemplate
+		if aws.StringValue(instanceLaunchTemplate.LaunchTemplateId) != aws.StringValue(targetLaunchTemplate.LaunchTemplateId) {
+			return true
+		}
+		if aws.StringValue(instanceLaunchTemplate.LaunchTemplateName) != aws.StringValue(targetLaunchTemplate.LaunchTemplateName) {
+			return true
+		}
+		if aws.String(*instanceLaunchTemplate.Version) != aws.String(*targetLaunchTemplate.Version) {
+			return true
+		}
+	}
+	return false
 }
