@@ -1,4 +1,4 @@
-VERSION=0.5-dev
+VERSION=0.6-dev
 # Image URL to use all building/pushing image targets
 IMG ?= keikoproj/rolling-upgrade-controller:${VERSION}
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -11,6 +11,7 @@ all: manager
 # Run tests
 test: generate fmt vet manifests
 	go test ./api/... ./controllers/... -coverprofile cover.out
+	go tool cover -html=./cover.out -o cover.html
 
 # Build manager binary
 manager: generate fmt vet
